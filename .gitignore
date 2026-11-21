@@ -2,5 +2,9 @@ venv/
 .env
 __pycache__/
 *.pyc
+
 uploads/*
+!uploads/.gitkeep
+
 outputs/*
+!outputs/.gitkeep
