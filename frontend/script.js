@@ -1,37 +1,107 @@
 
 const pdfFile = document.getElementById("pdfFile");
 const chooseBtn = document.getElementById("chooseBtn");
-const uploadBtn = document.getElementById("uploadBtn");
 const uploadArea = document.getElementById("uploadArea");
 const fileInfo = document.getElementById("fileInfo");
+
+const sourceLanguage = document.getElementById("sourceLanguage");
+const targetLanguage = document.getElementById("targetLanguage");
+
+const translateBtn = document.getElementById("translateBtn");
 const progress = document.getElementById("progress");
 const result = document.getElementById("result");
 
 let selectedFile = null;
+let uploadedFileId = null;
 
-// Open file picker
+
+// Safely read JSON responses from Flask
+async function readJSON(response, action) {
+    const responseText = await response.text();
+
+    try {
+        return responseText ? JSON.parse(responseText) : {};
+    } catch (error) {
+        console.error(`${action}: Server returned non-JSON response.`);
+        console.error("HTTP status:", response.status);
+        console.error("Response:", responseText);
+
+        throw new Error(
+            `${action} failed (HTTP ${response.status}). ` +
+            "The server returned an invalid response. Check the VS Code terminal."
+        );
+    }
+}
+
+
+// Load supported languages
+async function loadLanguages() {
+    try {
+        progress.textContent = "Loading available languages...";
+
+        const response = await fetch("/api/languages");
+        const data = await readJSON(response, "Loading languages");
+
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load languages.");
+        }
+
+        sourceLanguage.innerHTML =
+            '<option value="auto">Detect language automatically</option>';
+
+        targetLanguage.innerHTML = "";
+
+        data.languages.forEach(language => {
+            const sourceOption = document.createElement("option");
+            sourceOption.value = language.code;
+            sourceOption.textContent = language.name;
+
+            const targetOption = document.createElement("option");
+            targetOption.value = language.code;
+            targetOption.textContent = language.name;
+
+            sourceLanguage.appendChild(sourceOption);
+            targetLanguage.appendChild(targetOption);
+        });
+
+        sourceLanguage.value = "en";
+
+        if ([...targetLanguage.options].some(option => option.value === "ta")) {
+            targetLanguage.value = "ta";
+        } else {
+            targetLanguage.value = "en";
+        }
+
+        progress.textContent = "";
+        updateButton();
+
+    } catch (error) {
+        progress.textContent = "";
+        result.innerHTML =
+            `<p class="error">${escapeHTML(error.message)}</p>`;
+    }
+}
+
+
+// Select PDF
 chooseBtn.addEventListener("click", () => {
     pdfFile.click();
 });
 
-// Select a file
 pdfFile.addEventListener("change", () => {
     handleFile(pdfFile.files[0]);
 });
 
-// Handle selected file
-function handleFile(file) {
 
+function handleFile(file) {
     if (!file) return;
 
     result.innerHTML = "";
     progress.textContent = "";
+    uploadedFileId = null;
 
-    if (
-        file.type !== "application/pdf" ||
-        !file.name.toLowerCase().endsWith(".pdf")
-    ) {
-        alert("Please select a valid PDF file.");
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+        alert("Please select a PDF file.");
         return;
     }
 
@@ -45,11 +115,12 @@ function handleFile(file) {
     fileInfo.textContent =
         `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
 
-    uploadBtn.disabled = false;
+    updateButton();
 }
 
+
 // Drag and drop
-uploadArea.addEventListener("dragover", (event) => {
+uploadArea.addEventListener("dragover", event => {
     event.preventDefault();
     uploadArea.classList.add("dragover");
 });
@@ -58,78 +129,130 @@ uploadArea.addEventListener("dragleave", () => {
     uploadArea.classList.remove("dragover");
 });
 
-uploadArea.addEventListener("drop", (event) => {
+uploadArea.addEventListener("drop", event => {
     event.preventDefault();
     uploadArea.classList.remove("dragover");
 
-    const file = event.dataTransfer.files[0];
-
-    handleFile(file);
+    handleFile(event.dataTransfer.files[0]);
 });
 
-// Upload PDF
-uploadBtn.addEventListener("click", async () => {
 
-    if (!selectedFile) return;
+// Enable/disable translation button
+function updateButton() {
+    const hasFile = Boolean(selectedFile);
+    const hasTarget = Boolean(targetLanguage.value);
 
+    translateBtn.disabled = !(hasFile && hasTarget);
+
+    translateBtn.textContent = uploadedFileId
+        ? "Translate PDF"
+        : "Upload and Translate PDF";
+}
+
+
+// Upload the PDF
+async function uploadPDF() {
     const formData = new FormData();
-
     formData.append("file", selectedFile);
 
-    uploadBtn.disabled = true;
     progress.textContent = "Uploading and extracting PDF text...";
+
+    const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await readJSON(response, "PDF upload");
+
+    if (!response.ok) {
+        throw new Error(data.error || "PDF upload failed.");
+    }
+
+    uploadedFileId = data.file_id;
+
+    progress.textContent =
+        `Extracted ${data.total_characters} characters from ${data.total_pages} pages.`;
+
+    return data;
+}
+
+
+// Translate PDF
+translateBtn.addEventListener("click", async () => {
+    if (!selectedFile || !targetLanguage.value) return;
+
+    translateBtn.disabled = true;
     result.innerHTML = "";
 
     try {
+        if (!uploadedFileId) {
+            await uploadPDF();
+        }
 
-        const response = await fetch("/api/upload", {
+        progress.textContent = "Translating your document. Please wait...";
+
+        const response = await fetch("/api/translate", {
             method: "POST",
-            body: formData
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                file_id: uploadedFileId,
+                source_language: sourceLanguage.value,
+                target_language: targetLanguage.value
+            })
         });
 
-        const data = await response.json();
+        const data = await readJSON(response, "PDF translation");
 
         if (!response.ok) {
-            throw new Error(data.error || "Upload failed");
+            throw new Error(data.error || "Translation failed.");
         }
 
         progress.textContent = "";
 
+        const downloadLink = document.createElement("a");
+        downloadLink.href = data.download_url;
+        downloadLink.className = "download-link";
+        downloadLink.textContent = "Download translated PDF";
+
         result.innerHTML = `
-            <p class="success">✓ ${data.message}</p>
-            <p><strong>File:</strong> ${escapeHTML(data.filename)}</p>
-            <p><strong>Total pages:</strong> ${data.total_pages}</p>
-            <p><strong>Extracted characters:</strong> ${data.total_characters}</p>
-            <p><strong>Possible scanned pages:</strong>
-                ${data.scanned_pages.length
-                    ? escapeHTML(data.scanned_pages.join(", "))
-                    : "None detected"}
-            </p>
-            <h3>Extracted Text Preview</h3>
-            <pre>${escapeHTML(data.preview || "No selectable text found. OCR will be needed.")}</pre>
+            <p class="success">✓ ${escapeHTML(data.message)}</p>
+            <p>Your translated document contains ${data.total_pages} pages.</p>
         `;
+
+        result.appendChild(downloadLink);
+
+        uploadedFileId = null;
 
     } catch (error) {
-
         progress.textContent = "";
 
-        result.innerHTML = `
-            <p class="error">${escapeHTML(error.message)}</p>
-        `;
+        result.innerHTML =
+            `<p class="error">${escapeHTML(error.message)}</p>`;
+
+        console.error("LinguaPDF error:", error);
 
     } finally {
-
-        uploadBtn.disabled = !selectedFile;
+        updateButton();
     }
 });
 
-// Safely display server-provided text
+
+sourceLanguage.addEventListener("change", updateButton);
+targetLanguage.addEventListener("change", updateButton);
+
+
+// Escape text before displaying it
 function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, char => ({
+    return String(value).replace(/[&<>"']/g, character => ({
         "&": "&amp;",
         "<": "&lt;",
         ">": "&gt;",
         '"': "&quot;",
         "'": "&#39;"
-    })[char]);
+    })[character]);
 }
+
+
+loadLanguages();

@@ -1,73 +1,93 @@
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>LinguaPDF | PDF Translator</title>
-
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
 
-    <header>
-        <h1>LinguaPDF</h1>
-        <p>Translate your documents without boundaries.</p>
-    </header>
+<header class="site-header">
+    <a class="brand" href="/">Lingua<span>PDF</span></a>
+    <p>Translate documents. Connect languages.</p>
+</header>
 
-    <main class="container">
+<main class="container">
 
-        <section class="upload-card">
+    <section class="hero">
+        <div class="eyebrow">YOUR DOCUMENT TRANSLATION SPACE</div>
+        <h1>Every document has<br><span>a language.</span></h1>
+        <p>Upload a PDF, choose your languages, and get a translated document.</p>
+    </section>
 
-            <h2>Translate your PDF</h2>
+    <section class="translator-card">
 
-            <p class="description">
-                Upload your PDF document to get started.
-            </p>
-
-            <div class="upload-area" id="uploadArea">
-
-                <div class="upload-icon">📄</div>
-
-                <h3>Drop your PDF here</h3>
-
-                <p>or select a file from your device</p>
-
-                <input
-                    type="file"
-                    id="pdfFile"
-                    accept=".pdf,application/pdf"
-                    hidden
-                >
-
-                <button id="chooseBtn">
-                    Choose PDF
-                </button>
-
-                <p class="file-limit">
-                    PDF files only · Maximum 20 MB
-                </p>
-
+        <div class="card-heading">
+            <div>
+                <h2>Translate your PDF</h2>
+                <p>Choose your document and translation settings.</p>
             </div>
+            <div class="pdf-icon">PDF</div>
+        </div>
 
-            <div id="fileInfo" class="file-info"></div>
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-symbol">↑</div>
+            <h3>Drop your PDF here</h3>
+            <p>or browse files from your device</p>
 
-            <button id="uploadBtn" class="translate-btn" disabled>
-                Upload and Extract Text
+            <input type="file" id="pdfFile" accept=".pdf,application/pdf" hidden>
+
+            <button type="button" class="secondary-btn" id="chooseBtn">
+                Choose PDF
             </button>
 
-            <div id="progress" class="progress"></div>
+            <small>PDF files only · Maximum 20 MB</small>
+        </div>
 
-            <div id="result" class="result"></div>
+        <div id="fileInfo" class="file-info"></div>
 
-        </section>
+        <div class="language-heading">
+            <h3>Translation languages</h3>
+            <span>Choose your language pair</span>
+        </div>
 
-    </main>
+        <div class="language-row">
 
-    <script src="/static/script.js"></script>
+            <div class="language-field">
+                <label for="sourceLanguage">Translate from</label>
+                <select id="sourceLanguage">
+                    <option value="auto">Detect language automatically</option>
+                </select>
+            </div>
 
+            <div class="swap-symbol">→</div>
+
+            <div class="language-field">
+                <label for="targetLanguage">Translate to</label>
+                <select id="targetLanguage">
+                    <option value="">Loading languages...</option>
+                </select>
+            </div>
+
+        </div>
+
+        <button type="button" class="primary-btn" id="translateBtn" disabled>
+            Upload PDF to begin
+        </button>
+
+        <div id="progress" class="progress"></div>
+        <div id="result" class="result"></div>
+
+    </section>
+
+    <footer>
+        <p>LinguaPDF · Built for documents without language barriers.</p>
+    </footer>
+
+</main>
+
+<script src="/static/script.js"></script>
 </body>
 </html>
