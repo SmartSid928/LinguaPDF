@@ -1,0 +1,9 @@
+Flask
+PyMuPDF
+argostranslate
+langdetect
+reportlab
+python-dotenv
+pytesseract
+Pillow
+gunicorn
